@@ -6,19 +6,19 @@ import streamlit as st
 from dotenv import load_dotenv
 import google.generativeai as genai
 
-# --- 1. ALAPBEÁLLÍTÁSOK ---
+# --- 1. CONFIGURATION & SETUP ---
 load_dotenv()
 api_key = os.getenv("API_FOOTBALL_KEY")
 gemini_key = os.getenv("GEMINI_API_KEY")
 
 genai.configure(api_key=gemini_key)
-modell = genai.GenerativeModel('gemini-2.5-flash')
+model = genai.GenerativeModel('gemini-2.5-flash')
 
-# --- 2. SEGÉDFÜGGVÉNYEK (Gyorsítótárazással / Caching) ---
+# --- 2. HELPER FUNCTIONS (WITH CACHING) ---
 
 @st.cache_data(ttl=3600) 
-def get_team_id(csapat_nev):
-    url = f"https://v3.football.api-sports.io/teams?search={csapat_nev}"
+def get_team_id(team_name):
+    url = f"https://v3.football.api-sports.io/teams?search={team_name}"
     headers = {"x-apisports-key": api_key}
     try:
         res = requests.get(url, headers=headers)
@@ -32,12 +32,12 @@ def get_team_id(csapat_nev):
 
 @st.cache_data(ttl=3600)
 def get_team_detailed_stats(team_id, team_name):
-    
     url = f"https://v3.football.api-sports.io/fixtures?team={team_id}&season=2024"
     headers = {"x-apisports-key": api_key}
     
     res = requests.get(url, headers=headers)
-    if res.status_code != 200: return None
+    if res.status_code != 200: 
+        return None
         
     data = res.json()
     if 'errors' in data and data['errors']:
@@ -45,9 +45,9 @@ def get_team_detailed_stats(team_id, team_name):
         return None
         
     all_fixtures = data.get('response', [])
-    if not all_fixtures: return None
+    if not all_fixtures: 
+        return None
         
-    
     finished_matches = [m for m in all_fixtures if m['fixture']['status']['short'] in ['FT', 'AET', 'PEN']]
     finished_matches.sort(key=lambda x: x['fixture']['timestamp'], reverse=True)
     fixtures = finished_matches[:3] 
@@ -75,7 +75,6 @@ def get_team_detailed_stats(team_id, team_name):
         total_goals_scored += scored
         total_goals_conceded += conceded
         
-        
         time.sleep(1)
         
         stats_url = f"https://v3.football.api-sports.io/fixtures/statistics?fixture={fixture_id}&team={team_id}"
@@ -91,8 +90,10 @@ def get_team_detailed_stats(team_id, team_name):
             stats_resp = stats_data.get('response', [])
             if stats_resp:
                 for stat in stats_resp[0].get('statistics', []):
-                    if stat['type'] == 'Corner Kicks': corners = stat['value'] if stat['value'] else 0
-                    elif stat['type'] == 'Yellow Cards': cards = stat['value'] if stat['value'] else 0
+                    if stat['type'] == 'Corner Kicks': 
+                        corners = stat['value'] if stat['value'] else 0
+                    elif stat['type'] == 'Yellow Cards': 
+                        cards = stat['value'] if stat['value'] else 0
                 
                 total_corners += corners
                 total_cards += cards
@@ -111,58 +112,58 @@ def get_team_detailed_stats(team_id, team_name):
         'history': "\n".join(match_summaries)
     }
 
-# --- 3. WEBOLDAL GRAFIKUS FELÜLET ---
-st.set_page_config(page_title="H2H Elemző", page_icon="⚽", layout="wide") # Szélesebb dizájn
+# --- 3. WEB USER INTERFACE (STREAMLIT) ---
+st.set_page_config(page_title="H2H Elemző", page_icon="⚽", layout="wide") 
 st.title("⚽ AI H2H Meccs Elemző (V2.1 - Caching & RAG)")
 st.markdown("Vizsgáld meg a csapatok legfrissebb egyéni formáját, szöglet és lap átlagait valós időben!")
 
 col1, col2 = st.columns(2)
-with col1: hazai_csapat = st.text_input("🏠 Hazai csapat (pl. Real Madrid):")
-with col2: vendeg_csapat = st.text_input("✈️ Vendég csapat (pl. Barcelona):")
+with col1: 
+    home_team_input = st.text_input("🏠 Hazai csapat (pl. Real Madrid):")
+with col2: 
+    away_team_input = st.text_input("✈️ Vendég csapat (pl. Barcelona):")
 
 if st.button("Részletes Elemzés Kérése", use_container_width=True):
-    if hazai_csapat and vendeg_csapat:
+    if home_team_input and away_team_input:
         
         with st.spinner('Adatbányászat és API lekérések folyamatban...'):
-            hazai_id, hazai_hivatalos_nev = get_team_id(hazai_csapat)
-            vendeg_id, vendeg_hivatalos_nev = get_team_id(vendeg_csapat)
+            home_id, home_official_name = get_team_id(home_team_input)
+            away_id, away_official_name = get_team_id(away_team_input)
             
-            if hazai_id and vendeg_id:
-                st.success(f"✅ Rendszerkapcsolat felépítve: {hazai_hivatalos_nev} vs {vendeg_hivatalos_nev}")
+            if home_id and away_id:
+                st.success(f"✅ Rendszerkapcsolat felépítve: {home_official_name} vs {away_official_name}")
                 
-                hazai_stats = get_team_detailed_stats(hazai_id, hazai_hivatalos_nev)
-                vendeg_stats = get_team_detailed_stats(vendeg_id, vendeg_hivatalos_nev)
+                home_stats = get_team_detailed_stats(home_id, home_official_name)
+                away_stats = get_team_detailed_stats(away_id, away_official_name)
                 
-                if hazai_stats and vendeg_stats:
-                    st.divider() # Vonalhúzó
+                if home_stats and away_stats:
+                    st.divider() 
                     
-                    # A RAG ARCHITEKTÚRA BEMUTATÁSA, HASZNÁLATA
+                    # RAG ARCHITECTURE: RETRIEVAL STEP
                     st.header("📥 1. Kinyert Tényadatok (Retrieval)")
-                    
                     
                     st.subheader("Gólstatisztika összehasonlítás")
                     chart_data = pd.DataFrame(
                         {
-                            "Lőtt gólok (Átlag)": [hazai_stats['avg_scored'], vendeg_stats['avg_scored']],
-                            "Kapott gólok (Átlag)": [hazai_stats['avg_conceded'], vendeg_stats['avg_conceded']]
+                            "Lőtt gólok (Átlag)": [home_stats['avg_scored'], away_stats['avg_scored']],
+                            "Kapott gólok (Átlag)": [home_stats['avg_conceded'], away_stats['avg_conceded']]
                         },
-                        index=[hazai_hivatalos_nev, vendeg_hivatalos_nev]
+                        index=[home_official_name, away_official_name]
                     )
                     st.bar_chart(chart_data)
                     
-                    
                     m_col1, m_col2 = st.columns(2)
                     with m_col1:
-                        st.markdown(f"**🏠 {hazai_hivatalos_nev} (Utolsó 3 meccs)**")
-                        st.code(f"⚽ Lőtt: {hazai_stats['avg_scored']} | 🛡️ Kapott: {hazai_stats['avg_conceded']}\n📐 Szöglet: {hazai_stats['avg_corners']} | 🟨 Lap: {hazai_stats['avg_cards']}")
+                        st.markdown(f"**🏠 {home_official_name} (Utolsó 3 meccs)**")
+                        st.code(f"⚽ Lőtt: {home_stats['avg_scored']} | 🛡️ Kapott: {home_stats['avg_conceded']}\n📐 Szöglet: {home_stats['avg_corners']} | 🟨 Lap: {home_stats['avg_cards']}")
                         
                     with m_col2:
-                        st.markdown(f"**✈️ {vendeg_hivatalos_nev} (Utolsó 3 meccs)**")
-                        st.code(f"⚽ Lőtt: {vendeg_stats['avg_scored']} | 🛡️ Kapott: {vendeg_stats['avg_conceded']}\n📐 Szöglet: {vendeg_stats['avg_corners']} | 🟨 Lap: {vendeg_stats['avg_cards']}")
+                        st.markdown(f"**✈️ {away_official_name} (Utolsó 3 meccs)**")
+                        st.code(f"⚽ Lőtt: {away_stats['avg_scored']} | 🛡️ Kapott: {away_stats['avg_conceded']}\n📐 Szöglet: {away_stats['avg_corners']} | 🟨 Lap: {away_stats['avg_cards']}")
                     
                     st.divider()
                     
-                    
+                    # RAG ARCHITECTURE: GENERATION STEP
                     st.header("🧠 2. AI Elemzés (Generation)")
                     with st.spinner('Matematikai összefüggések keresése az adatokban...'):
                         prompt = f"""
@@ -177,12 +178,12 @@ if st.button("Részletes Elemzés Kérése", use_container_width=True):
                         - Maradj végig hűvös, matematikai és tárgyilagos.
                         
                         STATISZTIKÁK:
-                        Hazai ({hazai_hivatalos_nev}): Lőtt:{hazai_stats['avg_scored']}, Kapott:{hazai_stats['avg_conceded']}, Szöglet:{hazai_stats['avg_corners']}, Lap:{hazai_stats['avg_cards']}
-                        Vendég ({vendeg_hivatalos_nev}): Lőtt:{vendeg_stats['avg_scored']}, Kapott:{vendeg_stats['avg_conceded']}, Szöglet:{vendeg_stats['avg_corners']}, Lap:{vendeg_stats['avg_cards']}
+                        Hazai ({home_official_name}): Lőtt:{home_stats['avg_scored']}, Kapott:{home_stats['avg_conceded']}, Szöglet:{home_stats['avg_corners']}, Lap:{home_stats['avg_cards']}
+                        Vendég ({away_official_name}): Lőtt:{away_stats['avg_scored']}, Kapott:{away_stats['avg_conceded']}, Szöglet:{away_stats['avg_corners']}, Lap:{away_stats['avg_cards']}
                         """
                         
-                        ai_valasz = modell.generate_content(prompt)
-                        st.write(ai_valasz.text)
+                        ai_response = model.generate_content(prompt)
+                        st.write(ai_response.text)
                 else:
                     st.error("Nem sikerült kinyerni a statisztikákat (Lehet, hogy kimerült a napi API limit).")
             else:
