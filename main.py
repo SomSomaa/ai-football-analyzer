@@ -52,6 +52,7 @@ def get_team_detailed_stats(team_id, team_name):
     finished_matches.sort(key=lambda x: x['fixture']['timestamp'], reverse=True)
     fixtures = finished_matches[:3] 
         
+        
     total_goals_scored = 0
     total_goals_conceded = 0
     total_corners = 0
