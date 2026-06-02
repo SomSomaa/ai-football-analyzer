@@ -114,7 +114,75 @@ def get_team_detailed_stats(team_id, team_name):
     }
 
 # --- 3. WEB USER INTERFACE (STREAMLIT) ---
-st.set_page_config(page_title="H2H Elemző", page_icon="⚽", layout="wide") 
+st.set_page_config(page_title="H2H Elemző", page_icon="⚽", layout="wide")
+
+def inject_custom_css():
+    st.markdown("""
+    <style>
+    /* 1. Teljes háttér és betűtípus - Mély sötét, modern színvilág */
+    .stApp {
+        background-color: #0E1117;
+        background-image: radial-gradient(circle at 50% 0%, #1a202c 0%, #0E1117 70%);
+        color: #E0E6ED;
+    }
+
+    /* 2. Streamlit gyári felesleg (hamburger menü, lábléc) eltüntetése */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* 3. Beviteli mezők (Input boxes) modernizálása */
+    .stTextInput > div > div > input {
+        background-color: #1E2530 !important;
+        color: #FFFFFF !important;
+        border-radius: 10px;
+        border: 1px solid #2D3748 !important;
+        padding: 10px 15px;
+        box-shadow: inset 0 1px 4px rgba(0,0,0,0.5);
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .stTextInput > div > div > input:focus {
+        border-color: #3B82F6 !important; /* Kék neon fókusz */
+        box-shadow: 0 0 10px rgba(59, 130, 246, 0.4) !important;
+    }
+
+    /* 4. Gomb (Button) dizájn - Fókuszált, gradient "Call to Action" */
+    div.stButton > button:first-child {
+        background: linear-gradient(90deg, #3B82F6 0%, #8B5CF6 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 24px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        width: 100%;
+        border-radius: 8px !important;
+    }
+    div.stButton > button:first-child:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6);
+        background: linear-gradient(90deg, #2563EB 0%, #7C3AED 100%);
+    }
+
+    /* 5. Sikeres üzenet (st.success) modernizálása */
+    div[data-testid="stAlert"] {
+        background-color: rgba(16, 185, 129, 0.1) !important;
+        border: 1px solid rgba(16, 185, 129, 0.4) !important;
+        color: #10B981 !important;
+        border-radius: 10px;
+    }
+
+    /* 6. Elválasztó vonalak finomítása */
+    hr {
+        border-color: rgba(255, 255, 255, 0.1) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+inject_custom_css()
+
 st.title("⚽ AI H2H Meccs Elemző (V2.1 - Caching & RAG)")
 st.markdown("Vizsgáld meg a csapatok legfrissebb egyéni formáját, szöglet és lap átlagait valós időben!")
 
